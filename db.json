@@ -38,7 +38,7 @@
   "proveedores": [
     {
       "id": "PROV-001",
-      "nombre": "Suministros del Valle (demo)",
+      "nombre": "Suministros del Valle",
       "identificacionFiscal": "DEMO-001",
       "correo": "proveedor1@example.com",
       "telefono": "0000-0000",
@@ -46,7 +46,7 @@
     },
     {
       "id": "PROV-002",
-      "nombre": "Tecnología Central (demo)",
+      "nombre": "Tecnología Central",
       "identificacionFiscal": "DEMO-002",
       "correo": "proveedor2@example.com",
       "telefono": "0000-0000",

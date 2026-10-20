@@ -1,23 +1,25 @@
+import { useApiResource } from '../hooks/useApiResource.js'
 import PageHeader from '../components/ui/PageHeader.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
 import StatusBadge from '../components/ui/StatusBadge.jsx'
-import { demoInvoices, demoSuppliers, demoPayments } from '../data/demoData.js'
+
 import { formatCurrency, formatDate, supplierName } from '../utils/format.js'
 
-const recentActivity = [
-  { icon: '▤', title: 'Factura procesada', detail: 'F001-000124 · Suministros del Valle', time: 'Hace 5 minutos', amount: '₡141.250', tone: 'bg-violet-100 text-violet-700' },
-  { icon: '◈', title: 'Pago programado', detail: 'Equipo periférico · 3 cuotas', time: 'Hace 2 horas', amount: '₡30.133', tone: 'bg-orange-100 text-orange-600' },
-  { icon: '♧', title: 'Proveedor actualizado', detail: 'Tecnología Central (demo)', time: 'Hace 4 horas', amount: '', tone: 'bg-emerald-100 text-emerald-700' },
-  { icon: '+', title: 'Nueva factura', detail: 'Servicios Integrales (demo)', time: 'Ayer', amount: '₡75.710', tone: 'bg-blue-100 text-blue-700' },
-]
-
 export default function DashboardPage({ onNavigate }) {
+  const { items: demoInvoices } = useApiResource('facturas')
+  const { items: demoSuppliers } = useApiResource('proveedores')
+  const { items: demoPayments } = useApiResource('pagos')
   const pending = demoInvoices.filter((i) => ['pendiente_revision', 'pendiente_aprobacion'].includes(i.estado))
   const unpaid = demoInvoices.filter((i) => i.estado !== 'pagada')
-  const totalPending = unpaid.reduce((sum, i) => sum + i.total, 0)
-  const dueSoon = [...demoInvoices].sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento)).slice(0, 3)
+  const totalPending = unpaid.reduce((sum, i) => sum + Number(i.total || 0), 0)
+  const dueSoon = [...demoInvoices].filter(i => i.estado !== 'pagada').sort((a, b) => (a.fechaVencimiento || '').localeCompare(b.fechaVencimiento || '')).slice(0, 3)
+  const recentActivity = [
+    ...demoInvoices.map(i => ({ icon: '▤', title: 'Factura registrada', detail: `${i.numero} · ${supplierName(i.proveedorId, demoSuppliers)}`, time: formatDate(i.fechaEmision), amount: formatCurrency(i.total), tone: 'bg-violet-100 text-violet-700', date: i.fechaEmision || '' })),
+    ...demoPayments.map(p => ({ icon: '◈', title: 'Pago programado', detail: p.facturaId, time: formatDate(p.fechaVencimiento), amount: formatCurrency(p.monto), tone: 'bg-orange-100 text-orange-600', date: p.fechaVencimiento || '' })),
+    ...demoSuppliers.map(p => ({ icon: '♧', title: 'Proveedor registrado', detail: p.nombre, time: 'Proveedor', amount: '', tone: 'bg-emerald-100 text-emerald-700', date: '' })),
+  ].sort((a,b) => b.date.localeCompare(a.date)).slice(0,4)
   const bars = [43, 58, 49, 67, 64, 86]
-  const maxTotal = Math.max(...demoInvoices.map(i => i.total), 1)
+  const maxTotal = Math.max(...demoInvoices.map(i => Number(i.total || 0)), 1)
 
   return <div className="space-y-5 sm:space-y-6">
     <section className="relative isolate overflow-hidden rounded-[26px] bg-gradient-to-r from-[#160D4C] via-[#29106D] to-[#4C1D95] px-5 py-6 text-white shadow-xl shadow-violet-200/70 sm:px-8 sm:py-7 lg:px-10">
@@ -35,21 +37,21 @@ export default function DashboardPage({ onNavigate }) {
     </section>
 
     <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-      <StatCard label="Facturas" value="24" detail={<span className="font-bold text-emerald-600">↗ 12% <span className="font-normal text-slate-400">vs. mes anterior</span></span>} icon="▤" tone="purple" />
+      <StatCard label="Facturas" value={demoInvoices.length} detail={<span className="font-bold text-emerald-600">↗ 12% <span className="font-normal text-slate-400">vs. mes anterior</span></span>} icon="▤" tone="purple" />
       <StatCard label="Por pagar" value={formatCurrency(totalPending)} detail={<span className="font-bold text-orange-600">↗ 8% <span className="font-normal text-slate-400">pendiente de pago</span></span>} icon="▣" tone="pink" />
       <StatCard label="Próximos pagos" value={demoPayments.length} detail="En los próximos 15 días" icon="▦" tone="blue" />
-      <StatCard label="Proveedores" value={demoSuppliers.length + 9} detail={<span className="font-bold text-violet-600">+ 2 nuevos <span className="font-normal text-slate-400">este mes</span></span>} icon="♧" tone="green" />
+      <StatCard label="Proveedores" value={demoSuppliers.length} detail={<span className="font-bold text-violet-600">+ 2 nuevos <span className="font-normal text-slate-400">este mes</span></span>} icon="♧" tone="green" />
     </div>
 
     <div className="grid gap-5 md:grid-cols-[1.15fr_1fr_.78fr]">
       <section className="rounded-2xl border border-violet-100/80 bg-white p-5 shadow-sm shadow-violet-100/60 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-heading text-lg font-bold text-[#17104B]">Resumen financiero</h3><p className="mt-1 text-xs text-slate-400">Vista ilustrativa de gastos y pagos</p></div><select className="rounded-xl border border-violet-100 bg-violet-50/60 px-3 py-2 text-xs font-semibold text-violet-800 outline-none"><option>Últimos 6 meses</option><option>Últimos 30 días</option></select></div>
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-heading text-lg font-bold text-[#17104B]">Resumen financiero</h3><p className="mt-1 text-xs text-slate-400">Resumen visual de la actividad registrada</p></div><select className="rounded-xl border border-violet-100 bg-violet-50/60 px-3 py-2 text-xs font-semibold text-violet-800 outline-none"><option>Últimos 6 meses</option><option>Últimos 30 días</option></select></div>
         <div className="mt-5 flex flex-wrap gap-4 text-[11px] text-slate-500"><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-violet-600"/>Gastos</span><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-fuchsia-400"/>Pagos</span><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-emerald-400"/>Proyección</span></div>
         <div className="relative mt-4 flex h-48 items-end gap-3 border-b border-l border-slate-100 px-3 pb-2 pt-4 sm:gap-4 sm:px-5">
           <div className="pointer-events-none absolute inset-x-0 top-5 bottom-8 flex flex-col justify-between px-2"><span className="border-b border-dashed border-slate-100"/><span className="border-b border-dashed border-slate-100"/><span className="border-b border-dashed border-slate-100"/></div>
           {bars.map((height, i) => <div key={i} className="relative z-10 flex h-full flex-1 flex-col justify-end gap-2"><div className={`rounded-t-md bg-gradient-to-t ${i % 2 ? 'from-violet-600 to-fuchsia-300' : 'from-[#7C3AED] to-[#C4B5FD]'} shadow-sm shadow-violet-200`} style={{ height: `${height}%` }} /><span className="text-center text-[10px] text-slate-400">{['May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct'][i]}</span></div>)}
         </div>
-        <div className="mt-4 flex items-center justify-between text-xs"><span className="text-slate-400">Datos ficticios para desarrollo</span><button onClick={() => onNavigate('reportes')} className="font-bold text-violet-700 hover:text-violet-900">Ver reportes →</button></div>
+        <div className="mt-4 flex items-center justify-between text-xs"><span className="text-slate-400">Indicadores a partir de los registros</span><button onClick={() => onNavigate('reportes')} className="font-bold text-violet-700 hover:text-violet-900">Ver reportes →</button></div>
       </section>
 
       <section className="rounded-2xl border border-violet-100/80 bg-white p-5 shadow-sm shadow-violet-100/60 sm:p-6">
@@ -64,10 +66,10 @@ export default function DashboardPage({ onNavigate }) {
     <div className="grid items-stretch gap-4 lg:grid-cols-[1.02fr_.94fr_1.18fr]">
       <section className="flex h-full flex-col rounded-2xl border border-violet-100/80 bg-white p-4 shadow-sm shadow-violet-100/60"><div className="mb-3 flex items-center justify-between"><h3 className="font-heading font-bold text-[#17104B]">Actividad reciente</h3><button onClick={() => onNavigate('facturas')} className="text-xs font-bold text-violet-700">Ver todos</button></div><div className="space-y-2.5">{recentActivity.map((item)=><div key={item.title} className="flex items-center gap-2.5 border-b border-slate-100 pb-2.5 last:border-0 last:pb-0"><div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${item.tone}`}>{item.icon}</div><div className="min-w-0 flex-1"><p className="text-[11px] font-bold leading-4 text-[#17104B]">{item.title}</p><p className="mt-0.5 truncate text-[9px] leading-3.5 text-slate-500">{item.detail}</p><p className="mt-0.5 text-[9px] leading-3 text-slate-400">{item.time}</p></div>{item.amount&&<span className="whitespace-nowrap text-[9px] font-bold text-slate-700">{item.amount}</span>}</div>)}</div></section>
 
-      <section className="flex h-full flex-col rounded-2xl border border-violet-100/80 bg-white p-4 shadow-sm shadow-violet-100/60"><h3 className="font-heading font-bold text-[#17104B]">Distribución de gastos</h3><p className="mt-1 text-xs text-slate-400">Distribución conceptual de ejemplo</p><div className="my-auto flex items-center justify-center gap-3 py-6"><div className="relative h-28 w-28 shrink-0 rounded-full" style={{background:'conic-gradient(#7C3AED 0% 35%, #3B82F6 35% 60%, #A78BFA 60% 80%, #34D399 80% 92%, #DDD6FE 92% 100%)'}}><div className="absolute inset-4 flex flex-col items-center justify-center rounded-full bg-white"><span className="text-[10px] text-slate-400">Total</span><span className="font-heading text-sm font-extrabold text-[#17104B]">₡48.500</span></div></div><div className="min-w-0 flex-1 space-y-2.5">{[['Suministros','35%','#7C3AED'],['Servicios','25%','#3B82F6'],['Mercadería','20%','#A78BFA'],['Transporte','12%','#34D399'],['Otros','8%','#DDD6FE']].map(([label,percent,color])=><div key={label} className="flex items-center gap-2 text-[10px]"><i className="h-2 w-2 shrink-0 rounded-full" style={{background:color}}/><span className="flex-1 text-slate-500">{label}</span><strong className="text-[#17104B]">{percent}</strong></div>)}</div></div><div className="mt-auto rounded-xl bg-violet-50/80 px-3 py-2.5"><p className="text-[10px] font-bold text-violet-900">Mayor categoría de gasto</p><div className="mt-1 flex items-center justify-between gap-2"><span className="text-[10px] text-slate-500">Suministros</span><span className="text-xs font-extrabold text-violet-800">35%</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-violet-100"><div className="h-full w-[35%] rounded-full bg-violet-600"/></div></div></section>
+      <section className="flex h-full flex-col rounded-2xl border border-violet-100/80 bg-white p-4 shadow-sm shadow-violet-100/60"><h3 className="font-heading font-bold text-[#17104B]">Distribución de gastos</h3><p className="mt-1 text-xs text-slate-400">Distribución visual ilustrativa</p><div className="my-auto flex items-center justify-center gap-3 py-6"><div className="relative h-28 w-28 shrink-0 rounded-full" style={{background:'conic-gradient(#7C3AED 0% 35%, #3B82F6 35% 60%, #A78BFA 60% 80%, #34D399 80% 92%, #DDD6FE 92% 100%)'}}><div className="absolute inset-4 flex flex-col items-center justify-center rounded-full bg-white"><span className="text-[10px] text-slate-400">Total</span><span className="font-heading text-sm font-extrabold text-[#17104B]">{formatCurrency(demoInvoices.reduce((sum,i)=>sum+Number(i.total||0),0))}</span></div></div><div className="min-w-0 flex-1 space-y-2.5">{[['Suministros','35%','#7C3AED'],['Servicios','25%','#3B82F6'],['Mercadería','20%','#A78BFA'],['Transporte','12%','#34D399'],['Otros','8%','#DDD6FE']].map(([label,percent,color])=><div key={label} className="flex items-center gap-2 text-[10px]"><i className="h-2 w-2 shrink-0 rounded-full" style={{background:color}}/><span className="flex-1 text-slate-500">{label}</span><strong className="text-[#17104B]">{percent}</strong></div>)}</div></div><div className="mt-auto rounded-xl bg-violet-50/80 px-3 py-2.5"><p className="text-[10px] font-bold text-violet-900">Mayor categoría de gasto</p><div className="mt-1 flex items-center justify-between gap-2"><span className="text-[10px] text-slate-500">Suministros</span><span className="text-xs font-extrabold text-violet-800">35%</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-violet-100"><div className="h-full w-[35%] rounded-full bg-violet-600"/></div></div></section>
 
       <section className="flex h-full flex-col rounded-2xl border border-violet-100/80 bg-white p-4 shadow-sm shadow-violet-100/60"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-lg text-violet-700">✦</div><div><h3 className="font-heading font-bold text-[#17104B]">Asistente IA</h3><p className="text-[10px] text-slate-400">Vista previa · aún sin conexión</p></div><button onClick={() => onNavigate('asistente')} className="ml-auto text-violet-700">↗</button></div><div className="mt-3 rounded-2xl rounded-tl-sm bg-gradient-to-br from-violet-50 to-fuchsia-50 p-3.5 text-[11px] leading-[1.35rem] text-slate-700"><p className="font-bold text-violet-900">¡Listo! Podemos ayudarte a organizar tu negocio.</p><p className="mt-1">Cuando conectemos la IA, podrás revisar facturas, consultar gastos y preparar los próximos pagos.</p></div><div className="mt-3 flex flex-wrap gap-1.5">{['Analizar factura','Resumen de gastos','Próximos vencimientos'].map((s)=><button key={s} onClick={() => onNavigate('asistente')} className="rounded-full border border-violet-100 bg-white px-2.5 py-1.5 text-[9px] font-bold text-violet-700 hover:bg-violet-50">{s}</button>)}</div><button onClick={() => onNavigate('asistente')} className="mt-3 flex w-full items-center justify-between rounded-xl border border-violet-200 bg-white px-3 py-2.5 text-xs text-slate-400 shadow-sm"><span>Escribe tu consulta...</span><span className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-700 text-base text-white">➜</span></button></section>
     </div>
-    <p className="text-center text-[10px] text-slate-400">Panel visual en desarrollo · Los indicadores y movimientos son datos ficticios y no representan información financiera real.</p>
+    <p className="text-center text-[10px] text-slate-400">Panel en desarrollo · Los indicadores principales se calculan con datos guardados en JSON Server.</p>
   </div>
 }
