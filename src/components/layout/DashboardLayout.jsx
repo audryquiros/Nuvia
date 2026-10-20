@@ -1,5 +1,8 @@
 
+import { useMemo, useState } from 'react'
 import BrandMark from '../BrandMark.jsx'
+import { useApiResource } from '../../hooks/useApiResource.js'
+import { formatDate } from '../../utils/format.js'
 import {
   Home,
   FileText,
@@ -12,12 +15,17 @@ import {
   Settings,
   Search,
   Bell,
+  X,
+  AlertTriangle,
+  Clock3,
+  CheckCircle2,
+  CreditCard,
 } from 'lucide-react'
 
 const navGroups = [
   [
     { id: 'inicio', label: 'Inicio', icon: Home },
-    { id: 'facturas', label: 'Facturas', icon: FileText, badge: '24' },
+    { id: 'facturas', label: 'Facturas', icon: FileText, badgeKey: 'facturas' },
     { id: 'proveedores', label: 'Proveedores', icon: Users },
     { id: 'pagos', label: 'Pagos', icon: Wallet },
   ],
@@ -31,7 +39,7 @@ const navGroups = [
       id: 'aprobaciones',
       label: 'Aprobaciones',
       icon: CheckCheck,
-      badge: '2',
+      badgeKey: 'aprobaciones',
     },
   ],
 ]
@@ -44,6 +52,40 @@ export default function DashboardLayout({
   title,
   children,
 }) {
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const { items: invoices } = useApiResource('facturas')
+  const { items: approvals } = useApiResource('aprobaciones')
+  const { items: payments } = useApiResource('pagos')
+  const pendingApprovals = approvals.filter((item) => item.estado === 'pendiente')
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const threeDaysFromNow = new Date(today)
+  threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3)
+
+  const notifications = useMemo(() => {
+    const items = []
+    const invoiceById = new Map(invoices.map((invoice) => [String(invoice.id), invoice]))
+    pendingApprovals.forEach((approval) => {
+      const invoice = invoiceById.get(String(approval.facturaId))
+      if (invoice) items.push({ id: `approval-${approval.id}`, type: 'approval', title: 'Factura pendiente de aprobación', detail: `${invoice.numero || 'Factura'} · ${approval.motivo || 'Requiere revisión'}`, target: 'aprobaciones', date: approval.fechaSolicitud })
+    })
+    invoices.forEach((invoice) => {
+      if (!invoice.fechaVencimiento || ['pagada', 'anulada'].includes(invoice.estado)) return
+      const dueDate = new Date(`${invoice.fechaVencimiento}T12:00:00`)
+      if (Number.isNaN(dueDate.getTime())) return
+      const dueDay = new Date(dueDate)
+      dueDay.setHours(0, 0, 0, 0)
+      if (dueDay < today) items.push({ id: `overdue-${invoice.id}`, type: 'overdue', title: 'Factura vencida', detail: `${invoice.numero || 'Factura'} · Venció el ${formatDate(invoice.fechaVencimiento)}`, target: 'facturas', date: invoice.fechaVencimiento })
+      else if (dueDay <= threeDaysFromNow && invoice.estado !== 'pendiente_aprobacion') items.push({ id: `due-${invoice.id}`, type: 'due', title: 'Vencimiento próximo', detail: `${invoice.numero || 'Factura'} · Vence ${formatDate(invoice.fechaVencimiento)}`, target: 'facturas', date: invoice.fechaVencimiento })
+    })
+    payments.filter((payment) => ['pendiente', 'programado'].includes(payment.estado)).forEach((payment) => {
+      const invoice = invoiceById.get(String(payment.facturaId))
+      items.push({ id: `payment-${payment.id}`, type: 'payment', title: payment.estado === 'programado' ? 'Pago programado' : 'Pago pendiente', detail: `${invoice?.numero || 'Factura'}${payment.fechaVencimiento ? ` · ${formatDate(payment.fechaVencimiento)}` : ''}`, target: 'pagos', date: payment.fechaVencimiento })
+    })
+    return items.sort((a, b) => (a.date ? new Date(`${a.date}T12:00:00`).getTime() : 0) - (b.date ? new Date(`${b.date}T12:00:00`).getTime() : 0))
+  }, [invoices, approvals, payments])
+  const badgeCounts = { facturas: invoices.length, aprobaciones: pendingApprovals.length }
+
   return (
     <div className="min-h-screen bg-[#F5F3FF] text-[#17134B]">
       {/* Barra lateral */}
@@ -90,7 +132,7 @@ export default function DashboardLayout({
                       {item.label}
                     </span>
 
-                    {item.badge && (
+                    {item.badgeKey && (
                       <span
                         className={`rounded-full px-2 py-0.5 text-[10px] ${
                           activePage === item.id
@@ -98,7 +140,7 @@ export default function DashboardLayout({
                             : 'bg-violet-400/15 text-violet-200'
                         }`}
                       >
-                        {item.badge}
+                        {badgeCounts[item.badgeKey] ?? 0}
                       </span>
                     )}
                   </button>
@@ -191,14 +233,67 @@ export default function DashboardLayout({
               />
             </label>
 
-            <button
-              onClick={() => onNavigate('aprobaciones')}
-              className="relative hidden h-10 w-10 items-center justify-center rounded-full text-[#17104B] hover:bg-violet-50 sm:flex"
-              aria-label="Notificaciones"
-            >
-              <Bell size={18} />
-              <span className="absolute right-2 top-1.5 h-2 w-2 rounded-full bg-violet-500 ring-2 ring-white" />
-            </button>
+            <div className="relative hidden sm:block">
+              <button
+                onClick={() => setNotificationsOpen((open) => !open)}
+                className={`relative flex h-10 w-10 items-center justify-center rounded-full text-[#17104B] hover:bg-violet-50 ${notificationsOpen ? 'bg-violet-50' : ''}`}
+                aria-label={`Notificaciones${notifications.length ? ` (${notifications.length})` : ''}`}
+                aria-expanded={notificationsOpen}
+              >
+                <Bell size={18} />
+                {notifications.length > 0 && (
+                  <span className="absolute right-1 top-0 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-violet-600 px-1 text-[9px] font-bold text-white ring-2 ring-white">
+                    {notifications.length > 9 ? '9+' : notifications.length}
+                  </span>
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <div className="absolute right-0 top-12 z-50 w-[min(92vw,390px)] overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-xl shadow-violet-950/10">
+                  <div className="flex items-center justify-between border-b border-violet-100 px-4 py-3">
+                    <div>
+                      <p className="font-heading text-sm font-bold text-[#17104B]">Notificaciones</p>
+                      <p className="text-xs text-slate-500">
+                        {notifications.length ? `${notifications.length} avisos activos` : 'No tienes avisos pendientes'}
+                      </p>
+                    </div>
+                    <button onClick={() => setNotificationsOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-violet-50 hover:text-violet-700" aria-label="Cerrar notificaciones">
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <div className="max-h-[min(65vh,420px)] overflow-y-auto">
+                    {notifications.length ? notifications.map((notification) => {
+                      const Icon = notification.type === 'approval' ? CheckCheck : notification.type === 'overdue' ? AlertTriangle : notification.type === 'payment' ? CreditCard : Clock3
+                      const iconClass = notification.type === 'overdue' ? 'bg-rose-50 text-rose-600' : notification.type === 'approval' ? 'bg-violet-50 text-violet-600' : 'bg-amber-50 text-amber-600'
+                      return (
+                        <button
+                          key={notification.id}
+                          onClick={() => { setNotificationsOpen(false); onNavigate(notification.target) }}
+                          className="flex w-full gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-violet-50/60"
+                        >
+                          <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconClass}`}>
+                            <Icon size={17} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-bold text-[#17104B]">{notification.title}</span>
+                            <span className="mt-1 block text-xs leading-5 text-slate-500">{notification.detail}</span>
+                          </span>
+                        </button>
+                      )
+                    }) : (
+                      <div className="px-5 py-8 text-center">
+                        <CheckCircle2 className="mx-auto text-emerald-500" size={25} />
+                        <p className="mt-2 text-sm font-semibold text-slate-700">Todo al día</p>
+                        <p className="mt-1 text-xs text-slate-500">Aquí aparecerán avisos de facturas, pagos y aprobaciones.</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="border-t border-violet-100 bg-violet-50/50 px-4 py-2.5 text-[11px] text-slate-500">
+                    Avisos generados a partir de los datos locales de Nuvia.
+                  </div>
+                </div>
+              )}
+            </div>
 
             <button
               onClick={() => onNavigate('configuracion')}
