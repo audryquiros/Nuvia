@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../lib/api.js'
+import { recordActivity } from '../lib/activity.js'
 
 const DATA_CHANGED_EVENT = 'nuvia:data-changed'
+const ACTIVITY_EVENT = 'nuvia:activity'
 
 function notifyDataChanged(resource) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(DATA_CHANGED_EVENT, { detail: { resource } }))
   }
+}
+
+function notifyActivity(resource, action, record, id) {
+  recordActivity(resource, action, record, id)
 }
 
 export function useApiResource(resource) {
@@ -31,11 +37,16 @@ export function useApiResource(resource) {
       if (!event.detail?.resource || event.detail.resource === resource) refresh()
     }
     window.addEventListener(DATA_CHANGED_EVENT, handleDataChanged)
-    return () => window.removeEventListener(DATA_CHANGED_EVENT, handleDataChanged)
+    const syncTimer = window.setInterval(refresh, 5000)
+    return () => {
+      window.removeEventListener(DATA_CHANGED_EVENT, handleDataChanged)
+      window.clearInterval(syncTimer)
+    }
   }, [refresh, resource])
 
   const create = async (data) => {
     const result = await api.create(resource, data)
+    notifyActivity(resource, 'created', result || data)
     notifyDataChanged(resource)
     await refresh()
     return result
@@ -43,13 +54,16 @@ export function useApiResource(resource) {
 
   const update = async (id, data) => {
     const result = await api.update(resource, id, data)
+    notifyActivity(resource, 'updated', result || { ...data, id }, id)
     notifyDataChanged(resource)
     await refresh()
     return result
   }
 
   const remove = async (id) => {
+    const existing = items.find((item) => String(item.id) === String(id))
     await api.remove(resource, id)
+    notifyActivity(resource, 'deleted', existing || null, id)
     notifyDataChanged(resource)
     await refresh()
   }

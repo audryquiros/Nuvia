@@ -1,12 +1,15 @@
+import { useState } from 'react'
 import { useApiResource } from '../hooks/useApiResource.js'
 import PageHeader from '../components/ui/PageHeader.jsx'
 import StatCard from '../components/ui/StatCard.jsx'
 import StatusBadge from '../components/ui/StatusBadge.jsx'
+import StyledSelect from '../components/ui/StyledSelect.jsx'
 import { FileText, CreditCard, Users, Sparkles, ArrowUpRight, Wallet, MessageCircle } from 'lucide-react'
 
 import { formatCurrency, formatDate, supplierName } from '../utils/format.js'
 
 export default function DashboardPage({ onNavigate }) {
+  const [financialRange, setFinancialRange] = useState('6m')
   const { items: demoInvoices } = useApiResource('facturas')
   const { items: demoSuppliers } = useApiResource('proveedores')
   const { items: demoPayments } = useApiResource('pagos')
@@ -18,8 +21,9 @@ export default function DashboardPage({ onNavigate }) {
     ...demoInvoices.map(i => ({ icon: FileText, title: 'Factura registrada', detail: `${i.numero} · ${supplierName(i.proveedorId, demoSuppliers)}`, time: formatDate(i.fechaEmision), amount: formatCurrency(i.total), tone: 'bg-violet-100 text-violet-700', date: i.fechaEmision || '' })),
     ...demoPayments.map(p => ({ icon: CreditCard, title: 'Pago programado', detail: p.facturaId, time: formatDate(p.fechaVencimiento), amount: formatCurrency(p.monto), tone: 'bg-orange-100 text-orange-600', date: p.fechaVencimiento || '' })),
     ...demoSuppliers.map(p => ({ icon: Users, title: 'Proveedor registrado', detail: p.nombre, time: 'Proveedor', amount: '', tone: 'bg-emerald-100 text-emerald-700', date: '' })),
-  ].sort((a,b) => b.date.localeCompare(a.date)).slice(0,4)
-  const bars = [43, 58, 49, 67, 64, 86]
+  ].sort((a,b) => b.date.localeCompare(a.date))
+  const bars = financialRange === '30d' ? [36, 54, 45, 72, 61, 88] : [43, 58, 49, 67, 64, 86]
+  const barLabels = financialRange === '30d' ? ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Actual', 'Proy.'] : ['May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct']
   const maxTotal = Math.max(...demoInvoices.map(i => Number(i.total || 0)), 1)
 
   return <div className="space-y-5 sm:space-y-6">
@@ -46,11 +50,11 @@ export default function DashboardPage({ onNavigate }) {
 
     <div className="grid gap-5 md:grid-cols-[1.15fr_1fr_.78fr]">
       <section className="rounded-2xl border border-violet-100/80 bg-white p-5 shadow-sm shadow-violet-100/60 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-heading text-lg font-bold text-[#17104B]">Resumen financiero</h3><p className="mt-1 text-xs text-slate-400">Resumen visual de la actividad registrada</p></div><select className="rounded-xl border border-violet-100 bg-violet-50/60 px-3 py-2 text-xs font-semibold text-violet-800 outline-none"><option>Últimos 6 meses</option><option>Últimos 30 días</option></select></div>
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-heading text-lg font-bold text-[#17104B]">Resumen financiero</h3><p className="mt-1 text-xs text-slate-400">Resumen visual de la actividad registrada</p></div><StyledSelect ariaLabel="Periodo del resumen financiero" value={financialRange} onChange={setFinancialRange} className="w-full sm:w-44" options={[{ value: "6m", label: "Últimos 6 meses" }, { value: "30d", label: "Últimos 30 días" }]} /></div>
         <div className="mt-5 flex flex-wrap gap-4 text-[11px] text-slate-500"><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-violet-600"/>Gastos</span><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-fuchsia-400"/>Pagos</span><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-emerald-400"/>Proyección</span></div>
         <div className="relative mt-4 flex h-48 items-end gap-3 border-b border-l border-slate-100 px-3 pb-2 pt-4 sm:gap-4 sm:px-5">
           <div className="pointer-events-none absolute inset-x-0 top-5 bottom-8 flex flex-col justify-between px-2"><span className="border-b border-dashed border-slate-100"/><span className="border-b border-dashed border-slate-100"/><span className="border-b border-dashed border-slate-100"/></div>
-          {bars.map((height, i) => <div key={i} className="relative z-10 flex h-full flex-1 flex-col justify-end gap-2"><div className={`rounded-t-md bg-gradient-to-t ${i % 2 ? 'from-violet-600 to-fuchsia-300' : 'from-[#7C3AED] to-[#C4B5FD]'} shadow-sm shadow-violet-200`} style={{ height: `${height}%` }} /><span className="text-center text-[10px] text-slate-400">{['May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct'][i]}</span></div>)}
+          {bars.map((height, i) => <div key={i} className="relative z-10 flex h-full flex-1 flex-col justify-end gap-2"><div className={`rounded-t-md bg-gradient-to-t ${i % 2 ? 'from-violet-600 to-fuchsia-300' : 'from-[#7C3AED] to-[#C4B5FD]'} shadow-sm shadow-violet-200`} style={{ height: `${height}%` }} /><span className="text-center text-[10px] text-slate-400">{barLabels[i]}</span></div>)}
         </div>
         <div className="mt-4 flex items-center justify-between text-xs"><span className="text-slate-400">Indicadores a partir de los registros</span><button onClick={() => onNavigate('reportes')} className="font-bold text-violet-700 hover:text-violet-900">Ver reportes →</button></div>
       </section>
@@ -65,7 +69,7 @@ export default function DashboardPage({ onNavigate }) {
     </div>
 
     <div className="grid items-stretch gap-4 lg:grid-cols-[1.02fr_.94fr_1.18fr]">
-      <section className="flex h-full flex-col rounded-2xl border border-violet-100/80 bg-white p-4 shadow-sm shadow-violet-100/60"><div className="mb-3 flex items-center justify-between"><h3 className="font-heading font-bold text-[#17104B]">Actividad reciente</h3><button onClick={() => onNavigate('facturas')} className="text-xs font-bold text-violet-700">Ver todos</button></div><div className="space-y-2.5">{recentActivity.map((item)=><div key={item.title} className="flex items-center gap-2.5 border-b border-slate-100 pb-2.5 last:border-0 last:pb-0"><div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><item.icon size={16} strokeWidth={1.9} /></div><div className="min-w-0 flex-1"><p className="text-[11px] font-bold leading-4 text-[#17104B]">{item.title}</p><p className="mt-0.5 truncate text-[9px] leading-3.5 text-slate-500">{item.detail}</p><p className="mt-0.5 text-[9px] leading-3 text-slate-400">{item.time}</p></div>{item.amount&&<span className="whitespace-nowrap text-[9px] font-bold text-slate-700">{item.amount}</span>}</div>)}</div></section>
+      <section className="flex h-full flex-col rounded-2xl border border-violet-100/80 bg-white p-4 shadow-sm shadow-violet-100/60"><div className="mb-3 flex items-center justify-between"><h3 className="font-heading font-bold text-[#17104B]">Actividad reciente</h3><button onClick={() => onNavigate('facturas')} className="text-xs font-bold text-violet-700">Ver todos</button></div><div className="max-h-[330px] space-y-2.5 overflow-y-auto pr-1 nuvia-scrollbar">{recentActivity.map((item, index)=><div key={`${item.title}-${item.detail}-${item.date}-${index}`} className="flex items-center gap-2.5 border-b border-slate-100 pb-2.5 last:border-0 last:pb-0"><div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${item.tone}`}><item.icon size={16} strokeWidth={1.9} /></div><div className="min-w-0 flex-1"><p className="text-[11px] font-bold leading-4 text-[#17104B]">{item.title}</p><p className="mt-0.5 truncate text-[9px] leading-3.5 text-slate-500">{item.detail}</p><p className="mt-0.5 text-[9px] leading-3 text-slate-400">{item.time}</p></div>{item.amount&&<span className="whitespace-nowrap text-[9px] font-bold text-slate-700">{item.amount}</span>}</div>)}</div></section>
 
       <section className="flex h-full flex-col rounded-2xl border border-violet-100/80 bg-white p-4 shadow-sm shadow-violet-100/60"><h3 className="font-heading font-bold text-[#17104B]">Distribución de gastos</h3><p className="mt-1 text-xs text-slate-400">Distribución visual ilustrativa</p><div className="my-auto flex items-center justify-center gap-3 py-6"><div className="relative h-28 w-28 shrink-0 rounded-full" style={{background:'conic-gradient(#7C3AED 0% 35%, #3B82F6 35% 60%, #A78BFA 60% 80%, #34D399 80% 92%, #DDD6FE 92% 100%)'}}><div className="absolute inset-4 flex flex-col items-center justify-center rounded-full bg-white"><span className="text-[10px] text-slate-400">Total</span><span className="font-heading text-sm font-extrabold text-[#17104B]">{formatCurrency(demoInvoices.reduce((sum,i)=>sum+Number(i.total||0),0))}</span></div></div><div className="min-w-0 flex-1 space-y-2.5">{[['Suministros','35%','#7C3AED'],['Servicios','25%','#3B82F6'],['Mercadería','20%','#A78BFA'],['Transporte','12%','#34D399'],['Otros','8%','#DDD6FE']].map(([label,percent,color])=><div key={label} className="flex items-center gap-2 text-[10px]"><i className="h-2 w-2 shrink-0 rounded-full" style={{background:color}}/><span className="flex-1 text-slate-500">{label}</span><strong className="text-[#17104B]">{percent}</strong></div>)}</div></div><div className="mt-auto rounded-xl bg-violet-50/80 px-3 py-2.5"><p className="text-[10px] font-bold text-violet-900">Mayor categoría de gasto</p><div className="mt-1 flex items-center justify-between gap-2"><span className="text-[10px] text-slate-500">Suministros</span><span className="text-xs font-extrabold text-violet-800">35%</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-violet-100"><div className="h-full w-[35%] rounded-full bg-violet-600"/></div></div></section>
 

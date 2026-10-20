@@ -60,6 +60,30 @@ export default function DashboardLayout({
   useEffect(() => {
     localStorage.setItem('nuvia:read-notifications', JSON.stringify(readNotificationIds))
   }, [readNotificationIds])
+  const [activityEvents, setActivityEvents] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('nuvia:activity-events') || '[]') } catch { return [] }
+  })
+  useEffect(() => {
+    const handleActivity = (event) => {
+      const activity = event.detail
+      if (!activity?.id) return
+      setActivityEvents((current) => {
+        const next = [activity, ...current.filter((item) => item.id !== activity.id)].slice(0, 100)
+        try { localStorage.setItem('nuvia:activity-events', JSON.stringify(next)) } catch {}
+        return next
+      })
+    }
+    const handleStorage = (event) => {
+      if (event.key !== 'nuvia:activity-events' || !event.newValue) return
+      try { setActivityEvents(JSON.parse(event.newValue)) } catch {}
+    }
+    window.addEventListener('nuvia:activity', handleActivity)
+    window.addEventListener('storage', handleStorage)
+    return () => {
+      window.removeEventListener('nuvia:activity', handleActivity)
+      window.removeEventListener('storage', handleStorage)
+    }
+  }, [])
   const markNotificationRead = (id) => setReadNotificationIds((current) => current.includes(id) ? current : [...current, id])
   const markAllNotificationsRead = () => setReadNotificationIds((current) => [...new Set([...current, ...notifications.map((item) => item.id)])])
   const { items: invoices } = useApiResource('facturas')
@@ -74,32 +98,109 @@ export default function DashboardLayout({
   const notifications = useMemo(() => {
     const items = []
     const invoiceById = new Map(invoices.map((invoice) => [String(invoice.id), invoice]))
+    // Si ya existe un evento de actividad para la misma factura enviada a aprobación,
+    // no mostramos además el aviso derivado del estado actual: sería el mismo aviso duplicado.
+    const invoicesWithApprovalActivity = new Set(activityEvents
+      .filter((event) => (
+        (event.resource === 'facturas' && event.record?.estado === 'pendiente_aprobacion') ||
+        (event.resource === 'aprobaciones' && ['created', 'updated'].includes(event.action) && event.record?.estado === 'pendiente')
+      ))
+      .map((event) => String(event.resource === 'aprobaciones' ? event.record?.facturaId : event.record?.id || event.recordId || ''))
+      .filter(Boolean))
+
     approvals.forEach((approval) => {
       const invoice = invoiceById.get(String(approval.facturaId))
-      if (!invoice) return
-      const decisionDate = approval.fechaDecision || ''
-      const decidedToday = decisionDate === new Date().toISOString().slice(0, 10)
-      if (approval.estado === 'pendiente') {
-        items.push({ id: `approval-${approval.id}`, type: 'approval', title: 'Factura pendiente de aprobación', detail: `${invoice.numero || 'Factura'} · ${approval.motivo || 'Requiere revisión'}`, target: 'aprobaciones', date: approval.fechaSolicitud })
-      } else if (decidedToday && ['aprobada', 'devuelta'].includes(approval.estado)) {
-        items.push({ id: `approval-${approval.id}`, type: approval.estado === 'aprobada' ? 'approved' : 'returned', title: approval.estado === 'aprobada' ? 'Factura aprobada' : 'Factura devuelta a revisión', detail: `${invoice.numero || 'Factura'} · ${approval.estado === 'aprobada' ? 'La aprobación se registró correctamente' : 'Requiere correcciones o revisión'}`, target: 'facturas', date: decisionDate })
-      }
+      if (!invoice || approval.estado !== 'pendiente') return
+      if (invoicesWithApprovalActivity.has(String(approval.facturaId))) return
+      items.push({
+        id: `approval-${approval.id}`,
+        type: 'approval',
+        title: 'Factura pendiente de aprobación',
+        detail: `${invoice.numero || 'Factura'} · ${approval.motivo || 'Requiere revisión'}`,
+        target: 'aprobaciones',
+        date: approval.fechaSolicitud,
+      })
     })
+
     invoices.forEach((invoice) => {
       if (!invoice.fechaVencimiento || ['pagada', 'anulada'].includes(invoice.estado)) return
       const dueDate = new Date(`${invoice.fechaVencimiento}T12:00:00`)
       if (Number.isNaN(dueDate.getTime())) return
       const dueDay = new Date(dueDate)
       dueDay.setHours(0, 0, 0, 0)
-      if (dueDay < today) items.push({ id: `overdue-${invoice.id}`, type: 'overdue', title: 'Factura vencida', detail: `${invoice.numero || 'Factura'} · Venció el ${formatDate(invoice.fechaVencimiento)}`, target: 'facturas', date: invoice.fechaVencimiento })
-      else if (dueDay <= threeDaysFromNow && invoice.estado !== 'pendiente_aprobacion') items.push({ id: `due-${invoice.id}`, type: 'due', title: 'Vencimiento próximo', detail: `${invoice.numero || 'Factura'} · Vence ${formatDate(invoice.fechaVencimiento)}`, target: 'facturas', date: invoice.fechaVencimiento })
+      if (dueDay < today) {
+        items.push({ id: `overdue-${invoice.id}`, type: 'overdue', title: 'Factura vencida', detail: `${invoice.numero || 'Factura'} · Venció el ${formatDate(invoice.fechaVencimiento)}`, target: 'facturas', date: invoice.fechaVencimiento })
+      } else if (dueDay <= threeDaysFromNow && invoice.estado !== 'pendiente_aprobacion') {
+        items.push({ id: `due-${invoice.id}`, type: 'due', title: 'Vencimiento próximo', detail: `${invoice.numero || 'Factura'} · Vence ${formatDate(invoice.fechaVencimiento)}`, target: 'facturas', date: invoice.fechaVencimiento })
+      }
     })
+
     payments.filter((payment) => ['pendiente', 'programado'].includes(payment.estado)).forEach((payment) => {
       const invoice = invoiceById.get(String(payment.facturaId))
-      items.push({ id: `payment-${payment.id}`, type: 'payment', title: payment.estado === 'programado' ? 'Pago programado' : 'Pago pendiente', detail: `${invoice?.numero || 'Factura'}${payment.fechaVencimiento ? ` · ${formatDate(payment.fechaVencimiento)}` : ''}`, target: 'pagos', date: payment.fechaVencimiento })
+      items.push({
+        id: `payment-${payment.id}`,
+        type: 'payment',
+        title: payment.estado === 'programado' ? 'Pago programado' : 'Pago pendiente',
+        detail: `${invoice?.numero || payment.facturaId || 'Factura'}${payment.fechaVencimiento ? ` · ${formatDate(payment.fechaVencimiento)}` : ''}`,
+        target: 'pagos',
+        date: payment.fechaVencimiento,
+      })
     })
-    return items.sort((a, b) => (a.date ? new Date(`${a.date}T12:00:00`).getTime() : 0) - (b.date ? new Date(`${b.date}T12:00:00`).getTime() : 0))
-  }, [invoices, approvals, payments])
+
+    const resourceLabels = {
+      facturas: 'Factura',
+      proveedores: 'Proveedor',
+      pagos: 'Pago',
+      aprobaciones: 'Aprobación',
+      configuracion: 'Configuración',
+    }
+    const actionLabels = { created: 'registrado', updated: 'actualizado', deleted: 'eliminado' }
+    activityEvents.forEach((event) => {
+      const record = event.record || {}
+      const resourceLabel = resourceLabels[event.resource] || 'Registro'
+      let title = `${resourceLabel} ${actionLabels[event.action] || 'modificado'}`
+      let detail = record.numero || record.nombre || record.id || event.recordId || 'Se guardaron cambios'
+      let type = 'activity'
+      let target = event.resource === 'aprobaciones' ? 'aprobaciones' : event.resource === 'pagos' ? 'pagos' : event.resource === 'configuracion' ? 'configuracion' : event.resource === 'proveedores' ? 'proveedores' : 'facturas'
+
+      if (event.resource === 'facturas') {
+        if (record.estado === 'aprobada') { title = 'Factura aprobada'; type = 'approved' }
+        else if (record.estado === 'pendiente_aprobacion') { title = 'Factura enviada a aprobación'; type = 'approval'; target = 'aprobaciones' }
+        else if (record.estado === 'pendiente_revision') { title = 'Factura devuelta a revisión'; type = 'returned' }
+        else if (record.estado === 'pagada' || record.estado === 'pagado') { title = 'Factura marcada como pagada'; type = 'payment' }
+        else if (event.action === 'created') title = 'Nueva factura registrada'
+        detail = `${record.numero || 'Factura'} · ${record.descripcion || 'Se registró un cambio en la factura'}`
+      } else if (event.resource === 'aprobaciones') {
+        const invoice = invoiceById.get(String(record.facturaId))
+        if (record.estado === 'aprobada') { title = 'Factura aprobada'; type = 'approved' }
+        else if (record.estado === 'devuelta') { title = 'Factura devuelta a revisión'; type = 'returned' }
+        else if (record.estado === 'pendiente') { title = 'Factura pendiente de aprobación'; type = 'approval' }
+        detail = `${invoice?.numero || record.facturaId || 'Factura'} · ${record.motivo || 'Se actualizó la solicitud'}`
+      } else if (event.resource === 'pagos') {
+        if (record.estado === 'completado') { title = 'Pago marcado como completado'; type = 'payment' }
+        else if (record.estado === 'programado') title = event.action === 'created' ? 'Pago programado' : 'Pago actualizado'
+        const invoice = invoiceById.get(String(record.facturaId))
+        detail = `${invoice?.numero || record.facturaId || 'Factura'}${record.fechaVencimiento ? ` · ${formatDate(record.fechaVencimiento)}` : ''}`
+      } else if (event.resource === 'proveedores') {
+        detail = record.nombre || record.razonSocial || record.id || 'Proveedor'
+      }
+      items.push({
+        id: event.id,
+        type,
+        title,
+        detail,
+        target,
+        date: event.occurredAt,
+        timestamp: new Date(event.occurredAt).getTime(),
+      })
+    })
+
+    return items.sort((a, b) => {
+      const timeA = a.timestamp || (a.date ? new Date(`${a.date}T12:00:00`).getTime() : 0)
+      const timeB = b.timestamp || (b.date ? new Date(`${b.date}T12:00:00`).getTime() : 0)
+      return timeB - timeA
+    })
+  }, [invoices, approvals, payments, activityEvents])
   const unreadCount = notifications.filter((item) => !readNotificationIds.includes(item.id)).length
   const badgeCounts = { facturas: invoices.length, aprobaciones: pendingApprovals.length }
 
