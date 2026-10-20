@@ -1,0 +1,84 @@
+{
+  "facturas": [
+    {
+      "id": "FAC-2026-001",
+      "numero": "F001-000124",
+      "proveedorId": "PROV-001",
+      "fechaEmision": "2026-10-12",
+      "fechaVencimiento": "2026-10-27",
+      "moneda": "CRC",
+      "subtotal": 125000,
+      "impuestos": 16250,
+      "total": 141250,
+      "estado": "pendiente_revision",
+      "metodoPago": "transferencia",
+      "descripcion": "Compra de materiales de oficina",
+      "requiereAprobacion": false,
+      "observaciones": "Registro de demostración"
+    },
+    {
+      "id": "FAC-2026-002",
+      "numero": "F001-000125",
+      "proveedorId": "PROV-002",
+      "fechaEmision": "2026-10-14",
+      "fechaVencimiento": "2026-10-24",
+      "moneda": "CRC",
+      "subtotal": 80000,
+      "impuestos": 10400,
+      "total": 90400,
+      "estado": "pendiente_aprobacion",
+      "metodoPago": "tarjeta_credito",
+      "fechaPagoPrevista": "2026-11-05",
+      "cuotas": 3,
+      "requiereAprobacion": true,
+      "descripcion": "Compra de equipo periférico",
+      "observaciones": "Registro de demostración"
+    }
+  ],
+  "proveedores": [
+    {
+      "id": "PROV-001",
+      "nombre": "Suministros del Valle (demo)",
+      "identificacionFiscal": "DEMO-001",
+      "correo": "proveedor1@example.com",
+      "telefono": "0000-0000",
+      "estado": "activo"
+    },
+    {
+      "id": "PROV-002",
+      "nombre": "Tecnología Central (demo)",
+      "identificacionFiscal": "DEMO-002",
+      "correo": "proveedor2@example.com",
+      "telefono": "0000-0000",
+      "estado": "activo"
+    }
+  ],
+  "pagos": [
+    {
+      "id": "PAG-001",
+      "facturaId": "FAC-2026-002",
+      "monto": 30133.33,
+      "fechaVencimiento": "2026-11-05",
+      "estado": "programado",
+      "numeroCuota": 1,
+      "totalCuotas": 3
+    }
+  ],
+  "aprobaciones": [
+    {
+      "id": "APR-001",
+      "facturaId": "FAC-2026-002",
+      "estado": "pendiente",
+      "motivo": "Factura supera el umbral de aprobación configurado",
+      "fechaSolicitud": "2026-10-14"
+    }
+  ],
+  "configuracion": [
+    {
+      "id": "general",
+      "monedaPredeterminada": "CRC",
+      "umbralAprobacion": 75000,
+      "diasAvisoVencimiento": 3
+    }
+  ]
+}

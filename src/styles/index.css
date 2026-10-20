@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root{font-family:'Nunito Sans',sans-serif;color:#1F2937;background:#F7F6FC;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+html{scroll-behavior:smooth}body{min-width:320px;min-height:100vh;margin:0}button,a{-webkit-tap-highlight-color:transparent}::selection{color:#4C1D95;background:#EDE9FE}
+@layer components{.field{@apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:ring-4 focus:ring-violet-100;}}

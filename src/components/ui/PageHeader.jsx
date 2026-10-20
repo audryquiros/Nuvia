@@ -1,0 +1,3 @@
+export default function PageHeader({ eyebrow, title, description, action, onAction }) {
+  return <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="mb-2 text-xs font-extrabold uppercase tracking-[0.18em] text-violet-600">{eyebrow || 'NUVIA PULSE'}</p><h2 className="font-heading text-3xl font-bold tracking-tight text-[#17104B]">{title}</h2>{description && <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">{description}</p>}</div>{action && <button onClick={onAction} className="inline-flex items-center justify-center gap-2 self-start rounded-xl bg-[#7C3AED] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-violet-200 transition hover:bg-[#5B21B6]">{action}</button>}</div>
+}
