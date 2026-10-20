@@ -4,3 +4,21 @@
 :root{font-family:'Nunito Sans',sans-serif;color:#1F2937;background:#F7F6FC;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 html{scroll-behavior:smooth}body{min-width:320px;min-height:100vh;margin:0}button,a{-webkit-tap-highlight-color:transparent}::selection{color:#4C1D95;background:#EDE9FE}
 @layer components{.field{@apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:ring-4 focus:ring-violet-100;}}
+
+/* Controles coherentes con la identidad visual de Nuvia */
+@layer components {
+  select:not([multiple]) {
+    @apply w-full cursor-pointer rounded-xl border border-violet-100 bg-white px-3.5 py-3 pr-10 text-sm text-[#21134F] outline-none transition;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237C3AED' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.85rem center;
+    background-size: 1rem;
+  }
+  select:not([multiple]):focus {
+    @apply border-violet-400 ring-4 ring-violet-100;
+  }
+  select option { color: #21134F; background: #fff; }
+  input[type='date'] { color-scheme: light; }
+  .icon-button { @apply flex h-9 w-9 items-center justify-center rounded-xl border border-violet-100 bg-white text-violet-700 transition hover:border-violet-300 hover:bg-violet-50 focus:outline-none focus:ring-4 focus:ring-violet-100; }
+}

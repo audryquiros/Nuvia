@@ -10,7 +10,7 @@
       "subtotal": 125000,
       "impuestos": 16250,
       "total": 141250,
-      "estado": "pendiente_aprobacion",
+      "estado": "pagada",
       "metodoPago": "transferencia",
       "descripcion": "Compra de materiales de oficina",
       "requiereAprobacion": false,
@@ -76,9 +76,10 @@
     {
       "id": "APR-1792523330398",
       "facturaId": "FAC-2026-001",
-      "estado": "pendiente",
+      "estado": "aprobada",
       "motivo": "Factura enviada a aprobación",
-      "fechaSolicitud": "2026-10-20"
+      "fechaSolicitud": "2026-10-20",
+      "fechaDecision": "2026-10-20"
     }
   ],
   "configuracion": [

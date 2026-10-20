@@ -19,7 +19,7 @@ export function useApiResource(resource) {
       setItems(await api.getAll(resource))
       setError('')
     } catch (e) {
-      setError('No se pudo conectar con JSON Server. Comprueba que npm run api esté activo.')
+      setError('No se pudieron cargar los datos. Comprueba tu conexión e inténtalo de nuevo.')
     } finally {
       setLoading(false)
     }

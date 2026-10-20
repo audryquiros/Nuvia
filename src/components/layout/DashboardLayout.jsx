@@ -1,5 +1,5 @@
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import BrandMark from '../BrandMark.jsx'
 import { useApiResource } from '../../hooks/useApiResource.js'
 import { formatDate } from '../../utils/format.js'
@@ -20,6 +20,7 @@ import {
   Clock3,
   CheckCircle2,
   CreditCard,
+  Check,
 } from 'lucide-react'
 
 const navGroups = [
@@ -53,6 +54,14 @@ export default function DashboardLayout({
   children,
 }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [readNotificationIds, setReadNotificationIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('nuvia:read-notifications') || '[]') } catch { return [] }
+  })
+  useEffect(() => {
+    localStorage.setItem('nuvia:read-notifications', JSON.stringify(readNotificationIds))
+  }, [readNotificationIds])
+  const markNotificationRead = (id) => setReadNotificationIds((current) => current.includes(id) ? current : [...current, id])
+  const markAllNotificationsRead = () => setReadNotificationIds((current) => [...new Set([...current, ...notifications.map((item) => item.id)])])
   const { items: invoices } = useApiResource('facturas')
   const { items: approvals } = useApiResource('aprobaciones')
   const { items: payments } = useApiResource('pagos')
@@ -65,9 +74,16 @@ export default function DashboardLayout({
   const notifications = useMemo(() => {
     const items = []
     const invoiceById = new Map(invoices.map((invoice) => [String(invoice.id), invoice]))
-    pendingApprovals.forEach((approval) => {
+    approvals.forEach((approval) => {
       const invoice = invoiceById.get(String(approval.facturaId))
-      if (invoice) items.push({ id: `approval-${approval.id}`, type: 'approval', title: 'Factura pendiente de aprobación', detail: `${invoice.numero || 'Factura'} · ${approval.motivo || 'Requiere revisión'}`, target: 'aprobaciones', date: approval.fechaSolicitud })
+      if (!invoice) return
+      const decisionDate = approval.fechaDecision || ''
+      const decidedToday = decisionDate === new Date().toISOString().slice(0, 10)
+      if (approval.estado === 'pendiente') {
+        items.push({ id: `approval-${approval.id}`, type: 'approval', title: 'Factura pendiente de aprobación', detail: `${invoice.numero || 'Factura'} · ${approval.motivo || 'Requiere revisión'}`, target: 'aprobaciones', date: approval.fechaSolicitud })
+      } else if (decidedToday && ['aprobada', 'devuelta'].includes(approval.estado)) {
+        items.push({ id: `approval-${approval.id}`, type: approval.estado === 'aprobada' ? 'approved' : 'returned', title: approval.estado === 'aprobada' ? 'Factura aprobada' : 'Factura devuelta a revisión', detail: `${invoice.numero || 'Factura'} · ${approval.estado === 'aprobada' ? 'La aprobación se registró correctamente' : 'Requiere correcciones o revisión'}`, target: 'facturas', date: decisionDate })
+      }
     })
     invoices.forEach((invoice) => {
       if (!invoice.fechaVencimiento || ['pagada', 'anulada'].includes(invoice.estado)) return
@@ -84,6 +100,7 @@ export default function DashboardLayout({
     })
     return items.sort((a, b) => (a.date ? new Date(`${a.date}T12:00:00`).getTime() : 0) - (b.date ? new Date(`${b.date}T12:00:00`).getTime() : 0))
   }, [invoices, approvals, payments])
+  const unreadCount = notifications.filter((item) => !readNotificationIds.includes(item.id)).length
   const badgeCounts = { facturas: invoices.length, aprobaciones: pendingApprovals.length }
 
   return (
@@ -237,13 +254,13 @@ export default function DashboardLayout({
               <button
                 onClick={() => setNotificationsOpen((open) => !open)}
                 className={`relative flex h-10 w-10 items-center justify-center rounded-full text-[#17104B] hover:bg-violet-50 ${notificationsOpen ? 'bg-violet-50' : ''}`}
-                aria-label={`Notificaciones${notifications.length ? ` (${notifications.length})` : ''}`}
+                aria-label={`Notificaciones${unreadCount ? ` (${unreadCount} sin leer)` : ''}`}
                 aria-expanded={notificationsOpen}
               >
                 <Bell size={18} />
-                {notifications.length > 0 && (
+                {unreadCount > 0 && (
                   <span className="absolute right-1 top-0 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-violet-600 px-1 text-[9px] font-bold text-white ring-2 ring-white">
-                    {notifications.length > 9 ? '9+' : notifications.length}
+                    {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </button>
@@ -254,31 +271,35 @@ export default function DashboardLayout({
                     <div>
                       <p className="font-heading text-sm font-bold text-[#17104B]">Notificaciones</p>
                       <p className="text-xs text-slate-500">
-                        {notifications.length ? `${notifications.length} avisos activos` : 'No tienes avisos pendientes'}
+                        {unreadCount ? `${unreadCount} sin leer · ${notifications.length} en total` : 'Todas las notificaciones están leídas'}
                       </p>
                     </div>
+                    <div className="flex items-center gap-1">
+                    {unreadCount > 0 && <button onClick={markAllNotificationsRead} className="rounded-lg px-2 py-1.5 text-[11px] font-bold text-violet-700 hover:bg-violet-50">Marcar todas leídas</button>}
                     <button onClick={() => setNotificationsOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-violet-50 hover:text-violet-700" aria-label="Cerrar notificaciones">
                       <X size={16} />
                     </button>
+                    </div>
                   </div>
                   <div className="max-h-[min(65vh,420px)] overflow-y-auto">
                     {notifications.length ? notifications.map((notification) => {
-                      const Icon = notification.type === 'approval' ? CheckCheck : notification.type === 'overdue' ? AlertTriangle : notification.type === 'payment' ? CreditCard : Clock3
-                      const iconClass = notification.type === 'overdue' ? 'bg-rose-50 text-rose-600' : notification.type === 'approval' ? 'bg-violet-50 text-violet-600' : 'bg-amber-50 text-amber-600'
+                      const Icon = notification.type === 'approval' || notification.type === 'approved' || notification.type === 'returned' ? CheckCheck : notification.type === 'overdue' ? AlertTriangle : notification.type === 'payment' ? CreditCard : Clock3
+                      const iconClass = notification.type === 'overdue' ? 'bg-rose-50 text-rose-600' : notification.type === 'approved' ? 'bg-emerald-50 text-emerald-600' : notification.type === 'returned' ? 'bg-orange-50 text-orange-600' : notification.type === 'approval' ? 'bg-violet-50 text-violet-600' : 'bg-amber-50 text-amber-600'
+                      const isRead = readNotificationIds.includes(notification.id)
                       return (
-                        <button
+                        <div
                           key={notification.id}
-                          onClick={() => { setNotificationsOpen(false); onNavigate(notification.target) }}
-                          className="flex w-full gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-violet-50/60"
+                          className={`flex w-full gap-3 border-b border-slate-100 px-4 py-3 text-left transition ${isRead ? 'bg-white opacity-70' : 'bg-violet-50/30'}`} 
                         >
                           <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconClass}`}>
                             <Icon size={17} />
                           </span>
-                          <span className="min-w-0 flex-1">
+                          <button onClick={() => { markNotificationRead(notification.id); setNotificationsOpen(false); onNavigate(notification.target) }} className="min-w-0 flex-1 text-left">
                             <span className="block text-sm font-bold text-[#17104B]">{notification.title}</span>
                             <span className="mt-1 block text-xs leading-5 text-slate-500">{notification.detail}</span>
-                          </span>
-                        </button>
+                          </button>
+                          <button onClick={() => markNotificationRead(notification.id)} disabled={isRead} title={isRead ? 'Leída' : 'Marcar como leída'} aria-label={isRead ? 'Notificación leída' : 'Marcar notificación como leída'} className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isRead ? 'text-emerald-600' : 'text-slate-400 hover:bg-violet-100 hover:text-violet-700'}`}><Check size={15}/></button>
+                        </div>
                       )
                     }) : (
                       <div className="px-5 py-8 text-center">
@@ -289,7 +310,7 @@ export default function DashboardLayout({
                     )}
                   </div>
                   <div className="border-t border-violet-100 bg-violet-50/50 px-4 py-2.5 text-[11px] text-slate-500">
-                    Avisos generados a partir de los datos locales de Nuvia.
+                    Los avisos se actualizan con la actividad de tus facturas y pagos.
                   </div>
                 </div>
               )}

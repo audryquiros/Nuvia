@@ -1,4 +1,5 @@
 import BrandMark from '../components/BrandMark.jsx'
+import { Sparkles, FileText, CalendarClock } from 'lucide-react'
 
 const capabilities = [
   { number: '01', title: 'Facturas bajo control', description: 'Centraliza la revisión y organización de tus facturas.' },
@@ -51,7 +52,7 @@ export default function HomePage() {
                 <p className="text-sm font-semibold text-slate-500">Tu espacio de trabajo</p>
                 <h2 className="mt-1 font-heading text-xl font-semibold">Todo en perspectiva</h2>
               </div>
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-nuvia-lavender text-xl">✳</div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-nuvia-lavender text-nuvia-purple"><Sparkles size={20} strokeWidth={1.9} /></div>
             </div>
             <div className="mt-5 rounded-2xl bg-gradient-to-br from-nuvia-deep to-nuvia-purple p-5 text-white">
               <p className="text-sm font-semibold text-purple-100">Nuvia te acompaña</p>
@@ -63,19 +64,19 @@ export default function HomePage() {
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
-                <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-nuvia-purple">▤</div>
+                <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-nuvia-purple"><FileText size={18} strokeWidth={1.9} /></div>
                 <p className="text-sm font-semibold">Facturas</p>
                 <p className="mt-1 text-xs leading-5 text-slate-500">Revisión organizada</p>
               </div>
               <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
-                <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-violet-700">◷</div>
+                <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-violet-700"><CalendarClock size={18} strokeWidth={1.9} /></div>
                 <p className="text-sm font-semibold">Seguimiento</p>
                 <p className="mt-1 text-xs leading-5 text-slate-500">Fechas y recordatorios</p>
               </div>
             </div>
             <p className="mt-4 text-center text-xs text-slate-400">Vista conceptual · Los datos reales se conectarán más adelante</p>
           </div>
-          <div className="absolute -right-3 top-20 flex h-12 w-12 items-center justify-center rounded-2xl border border-white bg-white text-xl shadow-lg sm:-right-5">✦</div>
+          <div className="absolute -right-3 top-20 flex h-12 w-12 items-center justify-center rounded-2xl border border-white bg-white text-violet-700 shadow-lg sm:-right-5"><Sparkles size={20} strokeWidth={1.9} /></div>
           <div className="absolute -bottom-5 -left-3 rounded-2xl border border-white bg-white px-4 py-3 shadow-lg sm:-left-5">
             <p className="text-xs font-semibold text-slate-500">Tu negocio, a tu ritmo</p>
             <p className="mt-1 text-sm font-bold text-nuvia-deep">Claro · Cercano · Inteligente</p>
